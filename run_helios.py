@@ -163,37 +163,34 @@ def start_and_monitor(no_build=False):
         print("\n📊 Training started! Monitoring live logs...")
         print("Press Ctrl+C to stop training and cleanup")
         print("=" * 60)
-        
-        print("Waiting for pods to start...")
-        # Wait for all pods to be ready (up to 2 minutes)
+
+        print("Waiting for pods to start (timeout: 2 minutes)...")
         max_wait = 120
         waited = 0
+        pods_ready = False
         while waited < max_wait:
-            result = run_command(["kubectl", "get", "pods", "-n", "helios"])
-            lines = result.stdout.strip().splitlines()
-            if len(lines) > 1:
-                statuses = [line.split()[2] for line in lines[1:] if len(line.split()) > 2]
-                if all(s == "Running" for s in statuses):
-                    break
-            time.sleep(3)
-            waited += 3
-        print("Pods status after wait:")
-        run_command(["kubectl", "get", "pods", "-n", "helios"])
-        print("\n\U0001F4CA Training started! Monitoring live logs...")
-        print("Press Ctrl+C to stop training and cleanup")
+            # Using check=False to prevent crashing if namespace doesn't exist yet
+            result = run_command(["kubectl", "get", "pods", "-n", "helios", "--no-headers"], check=False)
+            pod_lines = result.stdout.strip().splitlines()
+            
+            # Check if there are any pods at all and at least one is Running
+            if pod_lines and any("Running" in line for line in pod_lines):
+                print("✓ Pods are starting...")
+                pods_ready = True
+                break
+            
+            time.sleep(5)
+            waited += 5
+        
+        print("\nFinal pods status:")
+        run_command(["kubectl", "get", "pods", "-n", "helios"], check=False)
+
+        if not pods_ready:
+            raise Exception("Timeout: No pods were in a 'Running' state after 2 minutes.")
+
+        print("\n\U0001F4CA Tailing logs...")
         print("=" * 60)
-        print("=== Helios Node Logs ===")
-        # Wait for at least one pod to be ready for logs
-        waited = 0
-        while waited < max_wait:
-            result = run_command(["kubectl", "get", "pods", "-n", "helios"])
-            lines = result.stdout.strip().splitlines()
-            if len(lines) > 1:
-                ready = any(line.split()[2] == "Running" for line in lines[1:] if len(line.split()) > 2)
-                if ready:
-                    break
-            time.sleep(3)
-            waited += 3
+        
         # Now tail logs
         run_command_live(["kubectl", "logs", "-f", "-l", "app=helios-node", "-n", "helios"])
         
