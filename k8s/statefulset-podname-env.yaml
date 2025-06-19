@@ -4,7 +4,15 @@ metadata:
   name: helios-node
   namespace: helios
 spec:
+  serviceName: helios-node
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helios-node
   template:
+    metadata:
+      labels:
+        app: helios-node
     spec:
       containers:
       - name: helios-node

@@ -1,10 +1,10 @@
 # Helios - Distributed AI Training System
 
-A decentralized AI training framework using Kubernetes auto-scaling and OpenDHT for peer-to-peer communication.
+A decentralized AI training framework using Kubernetes and OpenDHT for peer-to-peer communication.
 
 ## Features
 
-- **Kubernetes Auto-scaling**: Automatically scales from 1-5 nodes based on CPU and memory usage
+- **Kubernetes Scaling**: Runs with multiple nodes for distributed training
 - **Real-time Monitoring**: Live terminal logs with Ctrl+C to stop and cleanup
 - **Peer-to-peer Communication**: Uses OpenDHT for distributed parameter sharing
 - **Early Stopping**: Intelligent training termination based on convergence criteria
@@ -65,10 +65,10 @@ kubectl logs -f <pod-name> -n helios --previous
 ### Scale Manually
 ```bash
 # Scale to specific number of replicas
-kubectl scale deployment helios-node --replicas=3 -n helios
+kubectl scale statefulset helios-node --replicas=3 -n helios
 
 # Scale to 0 to stop training
-kubectl scale deployment helios-node --replicas=0 -n helios
+kubectl scale statefulset helios-node --replicas=0 -n helios
 ```
 
 ### Debug Issues
@@ -89,23 +89,14 @@ kubectl describe hpa helios-node -n helios
 - **Helios Node** (`helios_node.py`): Core training node with PyTorch model
 - **Real OpenDHT** (`real_opendht.py`): Peer-to-peer communication layer
 - **Mock OpenDHT** (`mock_opendht.py`): Fallback for testing
-- **Kubernetes Configs** (`k8s/`): Deployment, HPA, and configuration files
+- **Kubernetes Configs** (`k8s/`): StatefulSet and configuration files
 - **Management Script** (`run_helios.py`): Single command to start/stop everything
 
-### Auto-scaling Configuration
-- **Min replicas**: 1 node
-- **Max replicas**: 5 nodes  
-- **CPU target**: 70%
-- **Memory target**: 80%
-- **Scale delays**: 30s up, 60s down
-
-### Training Configuration
-- **Max epochs**: 1000
-- **Convergence threshold**: 0.001
-- **Patience**: 10 epochs
-- **Min accuracy**: 95.0%
-- **Batch size**: 32
-- **Learning rate**: 0.001
+### Scaling Configuration
+- **Default replicas**: 2 nodes
+- **Scaling**: Manual scaling via kubectl
+- **Node Discovery**: Automatic via StatefulSet DNS names
+- **Network**: Headless service for peer communication
 
 ## File Structure
 
