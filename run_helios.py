@@ -77,6 +77,12 @@ def prune_docker_images():
     run_command(["docker", "image", "prune", "-f"], check=False)
     print("✓ Docker images pruned.")
 
+def prune_docker_builder_cache():
+    """Remove all Docker builder cache."""
+    print("Pruning Docker builder cache...")
+    run_command(["docker", "builder", "prune", "-f"], check=False)
+    print("✓ Docker builder cache pruned.")
+
 def apply_k8s_configs():
     """Apply Kubernetes configurations."""
     print("Applying Kubernetes configurations...")
@@ -204,7 +210,7 @@ def start_and_monitor(no_build=False):
 def main():
     parser = argparse.ArgumentParser(description="Helios Training Management")
     parser.add_argument("command", choices=[
-        "start", "cleanup"
+        "start", "cleanup", "docker-prune"
     ], help="Command to execute")
     parser.add_argument("--no-build", action="store_true", help="Skip Docker image build")
     
@@ -215,6 +221,10 @@ def main():
     
     elif args.command == "cleanup":
         cleanup()
+
+    elif args.command == "docker-prune":
+        prune_docker_images()
+        prune_docker_builder_cache()
 
 if __name__ == "__main__":
     main() 
