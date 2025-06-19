@@ -207,13 +207,17 @@ def start_and_monitor(no_build=False):
         if e.stderr:
             print("--- stderr ---")
             print(e.stderr)
+        print("\nLeaving resources for inspection. Run 'python run_helios.py cleanup' manually.")
     except Exception as e:
         print(f"❌ An unexpected error occurred: {e}")
+        print("\nLeaving resources for inspection. Run 'python run_helios.py cleanup' manually.")
     finally:
-        print("\n🧹 Cleaning up...")
-        stop_training()
-        cleanup()
-        print("✅ Cleanup complete!")
+        # Only cleanup on graceful shutdown, not on error
+        if shutdown_requested:
+            print("\n🧹 Cleaning up...")
+            stop_training()
+            cleanup()
+            print("✅ Cleanup complete!")
 
 def main():
     parser = argparse.ArgumentParser(description="Helios Training Management")
