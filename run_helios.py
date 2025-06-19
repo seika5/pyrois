@@ -71,13 +71,18 @@ def build_image():
     run_command(["docker", "build", "-t", "helios-node:latest", "."])
     print("✓ Docker image built successfully")
 
+def prune_docker_images():
+    """Remove dangling Docker images."""
+    print("Pruning dangling Docker images...")
+    run_command(["docker", "image", "prune", "-f"], check=False)
+    print("✓ Docker images pruned.")
+
 def apply_k8s_configs():
     """Apply Kubernetes configurations."""
     print("Applying Kubernetes configurations...")
     run_command(["kubectl", "apply", "-f", "k8s/namespace.yaml"])
     run_command(["kubectl", "apply", "-f", "k8s/configmap.yaml"])
-    run_command(["kubectl", "apply", "-f", "k8s/deployment.yaml"])
-    run_command(["kubectl", "apply", "-f", "k8s/hpa.yaml"])
+    run_command(["kubectl", "apply", "-f", "k8s/statefulset-podname-env.yaml"])
     print("✓ Kubernetes configurations applied")
 
 def start_training():
@@ -126,7 +131,7 @@ def cleanup():
     except subprocess.CalledProcessError:
         print("ℹ️ No namespace to clean up (may not exist yet)")
 
-def start_and_monitor():
+def start_and_monitor(no_build=False):
     """Start training and monitor live with Ctrl+C to stop."""
     global shutdown_requested
     
@@ -138,7 +143,12 @@ def start_and_monitor():
         
         # Build and setup
         check_prerequisites()
-        build_image()
+        if not no_build:
+            build_image()
+            prune_docker_images()
+        else:
+            print("Skipping image build as requested.")
+        
         apply_k8s_configs()
         
         # Start training
@@ -196,11 +206,12 @@ def main():
     parser.add_argument("command", choices=[
         "start", "cleanup"
     ], help="Command to execute")
+    parser.add_argument("--no-build", action="store_true", help="Skip Docker image build")
     
     args = parser.parse_args()
     
     if args.command == "start":
-        start_and_monitor()
+        start_and_monitor(no_build=args.no_build)
     
     elif args.command == "cleanup":
         cleanup()

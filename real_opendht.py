@@ -69,17 +69,17 @@ class RealDhtNode:
                     await self.server.bootstrap(self._bootstrap_nodes)
                     logger.info(f"Bootstrapped to {self._bootstrap_nodes}")
                     break
-                except Exception as e:
+        except Exception as e:
                     logger.warning(f"Failed to bootstrap: {e}, retrying in 5s...")
                     await asyncio.sleep(5)
-        self.is_running = True
+                self.is_running = True
         logger.info(f"Kademlia DHT node started on port {self.port}")
 
     async def stop(self):
         await self.server.stop()
         self.is_running = False
         logger.info("Kademlia DHT node stopped")
-
+    
     async def put(self, key: str, value: Dict):
         try:
             import torch
@@ -98,11 +98,11 @@ class RealDhtNode:
             b64 = base64.b64encode(compressed).decode('utf-8')
             await self.server.set(key, b64)
             logger.debug(f"Put compressed value to DHT with key: {key}")
-        except Exception as e:
-            logger.error(f"Failed to put value to DHT: {e}")
+            except Exception as e:
+                logger.error(f"Failed to put value to DHT: {e}")
 
     async def get(self, key: str) -> Optional[Dict]:
-        try:
+            try:
             result = await self.server.get(key)
             if result:
                 # Decompress and decode
@@ -126,15 +126,15 @@ class RealDhtNode:
         except Exception as e:
             logger.error(f"Failed to get value from DHT: {e}")
         return None
-
+    
     def get_peers(self, exclude_self: bool = True) -> List[PeerInfo]:
         if exclude_self:
             return [peer for peer in self.peers.values() if peer.node_id != self.node_id]
         return list(self.peers.values())
-
+    
     def get_peer_count(self) -> int:
         return len([peer for peer in self.peers.values() if peer.node_id != self.node_id])
-
+    
     async def put_param(self, key: str, value, chunk_size=6000):
         try:
             import torch

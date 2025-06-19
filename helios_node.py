@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 import psutil
 import sys
-from real_opendht import RealDhtNode, PeerInfo
+    from real_opendht import RealDhtNode, PeerInfo
 import logging
 import hashlib
 
@@ -31,13 +31,13 @@ logger.remove()
 try:
     # Create logs directory if it doesn't exist
     Path("logs").mkdir(exist_ok=True)
-    logger.add(
-        "logs/helios_node_{time}.log",
-        rotation="10 MB",
-        retention="7 days",
-        level="DEBUG",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
-    )
+logger.add(
+    "logs/helios_node_{time}.log",
+    rotation="10 MB",
+    retention="7 days",
+    level="DEBUG",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+)
 except Exception as e:
     logger.warning(f"Could not setup file logging: {e}")
     # Fallback to console only logging
@@ -406,18 +406,18 @@ class HeliosNode:
                     self.peer_count = self.dht_node.get_peer_count()
                 # Only print if epoch or peer count changed
                 if self.current_epoch != last_epoch or self.peer_count != last_peer_count:
-                    table = Table(title=f"Helios Node {self.node_id} Status")
-                    table.add_column("Metric", style="cyan")
-                    table.add_column("Value", style="green")
-                    table.add_row("Device", str(self.device))
-                    table.add_row("Current Epoch", str(self.current_epoch))
-                    table.add_row("Total Rounds", str(self.total_rounds))
-                    table.add_row("Active Peers", str(self.peer_count))
-                    table.add_row("Model Parameters", f"{sum(p.numel() for p in self.model.parameters()):,}")
-                    if self.training_stats["loss"]:
-                        table.add_row("Latest Loss", f"{self.training_stats['loss'][-1]:.4f}")
-                        table.add_row("Latest Accuracy", f"{self.training_stats['accuracy'][-1]:.2f}%")
-                    console.print(table)
+                table = Table(title=f"Helios Node {self.node_id} Status")
+                table.add_column("Metric", style="cyan")
+                table.add_column("Value", style="green")
+                table.add_row("Device", str(self.device))
+                table.add_row("Current Epoch", str(self.current_epoch))
+                table.add_row("Total Rounds", str(self.total_rounds))
+                table.add_row("Active Peers", str(self.peer_count))
+                table.add_row("Model Parameters", f"{sum(p.numel() for p in self.model.parameters()):,}")
+                if self.training_stats["loss"]:
+                    table.add_row("Latest Loss", f"{self.training_stats['loss'][-1]:.4f}")
+                    table.add_row("Latest Accuracy", f"{self.training_stats['accuracy'][-1]:.2f}%")
+                console.print(table)
                     last_epoch = self.current_epoch
                     last_peer_count = self.peer_count
             except Exception as e:
@@ -485,43 +485,43 @@ async def main():
         if pod_name != "helios-node-0":
             print("Delaying startup to allow seed node to initialize...")
             time.sleep(10)
-        # Generate unique node ID
-        node_id = str(uuid.uuid4())[:8]
-        
-        # Get configuration from environment variables
-        config = NodeConfig(
-            node_id=node_id,
-            port=int(os.getenv("HELIOS_PORT", "4222")),
-            http_port=int(os.getenv("HELIOS_HTTP_PORT", "8000")),
-            bootstrap_host=os.getenv("HELIOS_BOOTSTRAP_HOST", "bootstrap.jami.net"),
-            bootstrap_port=int(os.getenv("HELIOS_BOOTSTRAP_PORT", "4222")),
-            gossip_interval=float(os.getenv("HELIOS_GOSSIP_INTERVAL", "5.0")),
-            training_interval=float(os.getenv("HELIOS_TRAINING_INTERVAL", "1.0")),
-            batch_size=int(os.getenv("HELIOS_BATCH_SIZE", "32")),
+    # Generate unique node ID
+    node_id = str(uuid.uuid4())[:8]
+    
+    # Get configuration from environment variables
+    config = NodeConfig(
+        node_id=node_id,
+        port=int(os.getenv("HELIOS_PORT", "4222")),
+        http_port=int(os.getenv("HELIOS_HTTP_PORT", "8000")),
+        bootstrap_host=os.getenv("HELIOS_BOOTSTRAP_HOST", "bootstrap.jami.net"),
+        bootstrap_port=int(os.getenv("HELIOS_BOOTSTRAP_PORT", "4222")),
+        gossip_interval=float(os.getenv("HELIOS_GOSSIP_INTERVAL", "5.0")),
+        training_interval=float(os.getenv("HELIOS_TRAINING_INTERVAL", "1.0")),
+        batch_size=int(os.getenv("HELIOS_BATCH_SIZE", "32")),
             learning_rate=float(os.getenv("HELIOS_LEARNING_RATE", "0.001")),
             max_epochs=int(os.getenv("HELIOS_MAX_EPOCHS", "10")),
             convergence_threshold=float(os.getenv("HELIOS_CONVERGENCE_THRESHOLD", "0.001")),
             patience=int(os.getenv("HELIOS_PATIENCE", "10")),
             min_accuracy=float(os.getenv("HELIOS_MIN_ACCURACY", "95.0"))
-        )
+    )
+    
+    # Create and start node
+    node = HeliosNode(config)
+    
+    try:
+        await node.start()
         
-        # Create and start node
-        node = HeliosNode(config)
-        
-        try:
-            await node.start()
-            
             # Keep the node running until training completes
             while node.current_epoch < config.max_epochs:
-                await asyncio.sleep(1)
-                
+            await asyncio.sleep(1)
+            
             logger.info("Training completed, shutting down node")
                 
-        except KeyboardInterrupt:
-            logger.info("Received shutdown signal")
-        finally:
-            await node.stop()
-                
+    except KeyboardInterrupt:
+        logger.info("Received shutdown signal")
+    finally:
+        await node.stop()
+            
     except Exception as e:
         logger.error(f"Fatal error during startup: {e}")
         import traceback
