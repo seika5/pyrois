@@ -199,8 +199,16 @@ def start_and_monitor(no_build=False):
         
     except KeyboardInterrupt:
         print("\n🛑 Interrupted by user")
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Command failed: {' '.join(e.cmd)}")
+        if e.stdout:
+            print("--- stdout ---")
+            print(e.stdout)
+        if e.stderr:
+            print("--- stderr ---")
+            print(e.stderr)
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ An unexpected error occurred: {e}")
     finally:
         print("\n🧹 Cleaning up...")
         stop_training()
