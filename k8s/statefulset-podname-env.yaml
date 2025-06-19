@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: helios-node
+  namespace: helios
+spec:
+  template:
+    spec:
+      containers:
+      - name: helios-node
+        env:
+        - name: HELIOS_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name 
