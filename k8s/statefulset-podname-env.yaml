@@ -16,6 +16,8 @@ spec:
     spec:
       containers:
       - name: helios-node
+        image: helios-node:latest
+        imagePullPolicy: Never
         env:
         - name: HELIOS_POD_NAME
           valueFrom:
