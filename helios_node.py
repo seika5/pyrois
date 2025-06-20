@@ -518,15 +518,16 @@ class HeliosNode:
 
 async def main():
     """Main entry point for the Helios node."""
+    node_id = str(uuid.uuid4())[:8]
+
+    # Correctly handle pod startup delay
     try:
-        import os
-        import time
         pod_name = os.environ.get("POD_NAME", "helios-node-0")
         if pod_name != "helios-node-0":
-            print("Delaying startup to allow seed node to initialize...")
-            time.sleep(10)
-    # Generate unique node ID
-    node_id = str(uuid.uuid4())[:8]
+            logger.info("Delaying startup for 10s to allow seed node to initialize...")
+            await asyncio.sleep(10)
+    except Exception as e:
+        logger.warning(f"Could not read POD_NAME for startup delay: {e}")
 
     # Get configuration from environment variables
     config = NodeConfig(
@@ -549,26 +550,25 @@ async def main():
 
     # Create and start node
     node = HeliosNode(config)
-
+    
     try:
         await node.start()
-
-        # Keep the node running until training completes
-        while node.current_epoch < config.max_epochs:
+        # Keep the node running until training completes or stopped
+        while not node.should_stop and node.current_epoch < config.max_epochs:
             await asyncio.sleep(1)
 
-            logger.info("Training completed, shutting down node")
+        logger.info("Training finished or stopped, shutting down node.")
 
-    except KeyboardInterrupt:
-        logger.info("Received shutdown signal")
-    finally:
-        await node.stop()
-
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("Received shutdown signal.")
     except Exception as e:
-        logger.error(f"Fatal error during startup: {e}")
+        logger.error(f"Fatal error during node execution: {e}")
         import traceback
         logger.error(traceback.format_exc())
         sys.exit(1)
+    finally:
+        await node.stop()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
