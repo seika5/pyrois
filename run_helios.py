@@ -88,6 +88,7 @@ def apply_k8s_configs():
     print("Applying Kubernetes configurations...")
     run_command(["kubectl", "apply", "-f", "k8s/namespace.yaml"])
     run_command(["kubectl", "apply", "-f", "k8s/configmap.yaml"])
+    run_command(["kubectl", "apply", "-f", "k8s/headless-service.yaml"])
     run_command(["kubectl", "apply", "-f", "k8s/statefulset-podname-env.yaml"])
     print("✓ Kubernetes configurations applied")
 
