@@ -11,6 +11,7 @@ import argparse
 import signal
 import threading
 from typing import List
+import uuid
 
 # Global flag for graceful shutdown
 shutdown_requested = False
@@ -66,10 +67,12 @@ def check_prerequisites():
         sys.exit(1)
 
 def build_image():
-    """Build the Docker image."""
-    print("Building Docker image...")
-    run_command(["docker", "build", "--no-cache", "-t", "helios-node:latest", "."])
+    """Build the Docker image with a unique tag and return the tag."""
+    build_tag = f"helios-node:build-{uuid.uuid4().hex[:8]}"
+    print(f"Building Docker image with tag: {build_tag}")
+    run_command(["docker", "build", "--no-cache", "-t", build_tag, "."])
     print("✓ Docker image built successfully")
+    return build_tag
 
 def prune_docker_images():
     """Remove dangling Docker images."""
@@ -91,6 +94,13 @@ def apply_k8s_configs():
     run_command(["kubectl", "apply", "-f", "k8s/headless-service.yaml"])
     run_command(["kubectl", "apply", "-f", "k8s/statefulset-podname-env.yaml"])
     print("✓ Kubernetes configurations applied")
+
+def set_k8s_image(image_tag: str):
+    """Set the image for the StatefulSet to the newly built image."""
+    print(f"Updating StatefulSet to use image: {image_tag}")
+    # Using 'statefulset/helios-node' is more specific than just 'statefulset helios-node'
+    run_command(["kubectl", "set", "image", "statefulset/helios-node", f"helios-node={image_tag}", "-n", "helios"])
+    print("✓ StatefulSet image updated")
 
 def start_training():
     """Start the training by scaling up the deployment."""
@@ -148,15 +158,17 @@ def start_and_monitor(no_build=False):
     try:
         print("🚀 Starting Helios Training System...")
         
-        # Build and setup
         check_prerequisites()
+        
+        image_tag = "helios-node:latest"
         if not no_build:
-            build_image()
+            image_tag = build_image()
             prune_docker_images()
         else:
             print("Skipping image build as requested.")
         
         apply_k8s_configs()
+        set_k8s_image(image_tag)
         
         # Start training
         start_training()
