@@ -406,14 +406,14 @@ class HeliosNode:
                     self.peer_count = self.dht_node.get_peer_count()
                 # Only print if epoch or peer count changed
                 if self.current_epoch != last_epoch or self.peer_count != last_peer_count:
-                table = Table(title=f"Helios Node {self.node_id} Status")
-                table.add_column("Metric", style="cyan")
-                table.add_column("Value", style="green")
-                table.add_row("Device", str(self.device))
-                table.add_row("Current Epoch", str(self.current_epoch))
-                table.add_row("Total Rounds", str(self.total_rounds))
-                table.add_row("Active Peers", str(self.peer_count))
-                table.add_row("Model Parameters", f"{sum(p.numel() for p in self.model.parameters()):,}")
+                    table = Table(title=f"Helios Node {self.node_id} Status")
+                    table.add_column("Metric", style="cyan")
+                    table.add_column("Value", style="green")
+                    table.add_row("Device", str(self.device))
+                    table.add_row("Current Epoch", str(self.current_epoch))
+                    table.add_row("Total Rounds", str(self.total_rounds))
+                    table.add_row("Active Peers", str(self.peer_count))
+                    table.add_row("Model Parameters", f"{sum(p.numel() for p in self.model.parameters()):,}")
                 if self.training_stats["loss"]:
                     table.add_row("Latest Loss", f"{self.training_stats['loss'][-1]:.4f}")
                     table.add_row("Latest Accuracy", f"{self.training_stats['accuracy'][-1]:.2f}%")
