@@ -22,7 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 import psutil
 import sys
-    from real_opendht import RealDhtNode, PeerInfo
+from real_opendht import RealDhtNode, PeerInfo
 import logging
 import hashlib
 
@@ -31,13 +31,13 @@ logger.remove()
 try:
     # Create logs directory if it doesn't exist
     Path("logs").mkdir(exist_ok=True)
-logger.add(
-    "logs/helios_node_{time}.log",
-    rotation="10 MB",
-    retention="7 days",
-    level="DEBUG",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
-)
+    logger.add(
+        "logs/helios_node_{time}.log",
+        rotation="10 MB",
+        retention="7 days",
+        level="DEBUG",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+    )
 except Exception as e:
     logger.warning(f"Could not setup file logging: {e}")
     # Fallback to console only logging
