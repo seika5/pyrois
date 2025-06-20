@@ -525,7 +525,7 @@ async def main():
 
     # Correctly handle pod startup delay
     try:
-        pod_name = os.environ.get("POD_NAME", "helios-node-0")
+        pod_name = os.environ.get("HELIOS_POD_NAME", "helios-node-0")
         if pod_name != "helios-node-0":
             logger.info("Delaying startup for 10s to allow seed node to initialize...")
             await asyncio.sleep(10)

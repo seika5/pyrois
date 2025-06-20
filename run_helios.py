@@ -68,7 +68,7 @@ def check_prerequisites():
 def build_image():
     """Build the Docker image."""
     print("Building Docker image...")
-    run_command(["docker", "build", "-t", "helios-node:latest", "."])
+    run_command(["docker", "build", "--no-cache", "-t", "helios-node:latest", "."])
     print("✓ Docker image built successfully")
 
 def prune_docker_images():
