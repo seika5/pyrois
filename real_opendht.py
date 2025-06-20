@@ -56,23 +56,33 @@ class RealDhtNode:
             print("[DHT INIT] This node is the DHT seed (no bootstrap)")
 
     async def start(self):
-        # Listen on all interfaces
-        pod_ip = os.environ.get("POD_IP")
-        if not pod_ip:
-            # Try to get from downward API or fallback
-            pod_ip = os.environ.get("POD_IP", "0.0.0.0")
-        print(f"[DHT INIT] Using external IP: {pod_ip}")
+        # Determine the external IP address for the node
+        pod_name = os.environ.get('HELIOS_POD_NAME', '')
+        if pod_name == 'helios-node-0':
+            self._bootstrap_nodes = []
+        else:
+            # All other pods bootstrap to the seed node
+            self._bootstrap_nodes = [
+                ("helios-node-0.helios-node.helios.svc.cluster.local", 4222)]
+
+        # Get pod ip from downward API
+        pod_ip = os.environ.get("POD_IP", "0.0.0.0")
+        logger.info(f"[DHT INIT] Using external IP: {pod_ip}")
+
+        self.server = Server()
         await self.server.listen(self.port, interface="0.0.0.0")
+        
         if self._bootstrap_nodes:
             while True:
                 try:
                     await self.server.bootstrap(self._bootstrap_nodes)
                     logger.info(f"Bootstrapped to {self._bootstrap_nodes}")
                     break
-        except Exception as e:
+                except Exception as e:
                     logger.warning(f"Failed to bootstrap: {e}, retrying in 5s...")
                     await asyncio.sleep(5)
-                self.is_running = True
+        
+        self.is_running = True
         logger.info(f"Kademlia DHT node started on port {self.port}")
 
     async def stop(self):
@@ -82,7 +92,6 @@ class RealDhtNode:
     
     async def put(self, key: str, value: Dict):
         try:
-            import torch
             def force_to_list(obj):
                 if hasattr(obj, 'tolist'):
                     return obj.tolist()
@@ -92,40 +101,45 @@ class RealDhtNode:
                     return [force_to_list(v) for v in obj]
                 else:
                     return obj
-            value = force_to_list(value)
-            json_str = json.dumps(value)
+            
+            serializable_value = force_to_list(value)
+            json_str = json.dumps(serializable_value)
             compressed = zlib.compress(json_str.encode('utf-8'))
-            b64 = base64.b64encode(compressed).decode('utf-8')
-            await self.server.set(key, b64)
+            b64_encoded = base64.b64encode(compressed).decode('utf-8')
+            
+            await self.server.set(key, b64_encoded)
             logger.debug(f"Put compressed value to DHT with key: {key}")
-            except Exception as e:
-                logger.error(f"Failed to put value to DHT: {e}")
+            
+        except Exception as e:
+            logger.error(f"Failed to put value to DHT: {e}")
 
     async def get(self, key: str) -> Optional[Dict]:
-            try:
+        try:
             result = await self.server.get(key)
-            if result:
-                # Decompress and decode
-                compressed = base64.b64decode(result)
-                json_str = zlib.decompress(compressed).decode('utf-8')
-                data = json.loads(json_str)
-                # Track peer if node_id present
-                if isinstance(data, dict) and 'node_id' in data and data['node_id'] != self.node_id:
-                    # Ensure model_params are lists, not tensors
-                    model_params = _to_serializable(data.get('model_params', {}))
-                    peer_info = PeerInfo(
-                        node_id=data['node_id'],
-                        epoch=data['epoch'],
-                        loss=data['loss'],
-                        accuracy=data['accuracy'],
-                        model_params=model_params,
-                        timestamp=time.time()
-                    )
-                    self.peers[peer_info.node_id] = peer_info
-                return data
+            if not result:
+                return None
+
+            # Decompress and decode
+            compressed = base64.b64decode(result)
+            json_str = zlib.decompress(compressed).decode('utf-8')
+            data = json.loads(json_str)
+
+            # Track peer if node_id present
+            if isinstance(data, dict) and 'node_id' in data and data['node_id'] != self.node_id:
+                peer_info = PeerInfo(
+                    node_id=data['node_id'],
+                    epoch=data.get('epoch', 0),
+                    loss=data.get('loss', 0.0),
+                    accuracy=data.get('accuracy', 0.0),
+                    model_params=data.get('model_params', {}),
+                    timestamp=time.time()
+                )
+                self.peers[peer_info.node_id] = peer_info
+            return data
+            
         except Exception as e:
             logger.error(f"Failed to get value from DHT: {e}")
-        return None
+            return None
     
     def get_peers(self, exclude_self: bool = True) -> List[PeerInfo]:
         if exclude_self:
