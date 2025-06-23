@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from hivemind import DHT, Optimizer # Corrected import
+from hivemind import DHT, Optimizer
 from hivemind.utils import get_logger
 import os
 import argparse
@@ -39,15 +39,12 @@ def train_model(args):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
     # Initialize DHT
-    # Important: DHT needs to know its *publicly accessible* address.
-    # We will pass the public IP explicitly for the initial peer.
     if args.initial_peers:
         dht = DHT(initial_peers=args.initial_peers.split(','), start=True)
     else:
         # For the first peer (remote machine), explicitly bind to 0.0.0.0 AND advertise public IP.
-        # This tells Hivemind to listen on all interfaces but tell others to connect via the public IP.
         dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}"],
-                  announce_maddrs=[f"/ip4/{args.public_ip}/tcp/{args.dht_port}"]) # <<< ADDED announce_maddrs
+                  announce_maddrs=[f"/ip4/{args.public_ip}/tcp/{args.dht_port}"])
     
     # Print the visible multiaddrs for other peers to connect
     print("DHT visible multiaddrs:")
@@ -59,44 +56,39 @@ def train_model(args):
     base_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
 
-    # --- Hivemind Optimizer setup (updated for latest API) ---
+    # --- Hivemind Optimizer setup ---
     opt = Optimizer(
         dht=dht,
-        optimizer=base_optimizer, # Wrap your standard PyTorch optimizer
-        run_id=args.run_id, # Unique identifier for this collaborative run
-        target_batch_size=args.target_batch_size, # Global batch size
-        batch_size_per_step=args.batch_size, # Local batch size contributed per step
-        # matchmaking_kwargs removed as it's no longer a direct argument for Optimizer
+        optimizer=base_optimizer,
+        run_id=args.run_id,
+        target_batch_size=args.target_batch_size,
+        batch_size_per_step=args.batch_size,
     )
 
-    # Optional: load state from peers if joining an existing run
     logger.info("Attempting to load state from peers...")
     opt.load_state_from_peers()
     logger.info("State loaded or initialized.")
 
-
     # Main training loop
     logger.info(f"Starting training for run_id: {args.run_id}")
-    with opt.training(): # Context manager for Hivemind training
-        for epoch in range(args.num_epochs):
-            for batch_idx, (data, target) in enumerate(train_loader):
-                data, target = data.to(device), target.to(device)
+    # REMOVED: with opt.training():
+    for epoch in range(args.num_epochs):
+        for batch_idx, (data, target) in enumerate(train_loader):
+            data, target = data.to(device), target.to(device)
 
-                opt.zero_grad() # Calls zero_grad on the wrapped optimizer
-                output = model(data)
-                loss = criterion(output, target)
-                loss.backward()
-                
-                # Step the Hivemind optimizer: this handles gradient aggregation and parameter updates
-                opt.step()
-
-                if batch_idx % args.log_interval == 0:
-                    logger.info(f'Epoch: {epoch}, Batch: {batch_idx}/{len(train_loader)} \tLoss: {loss.item():.6f}')
+            opt.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
             
-            logger.info(f"Epoch {epoch} finished.")
+            opt.step() # This is now the primary driver of distributed updates
+
+            if batch_idx % args.log_interval == 0:
+                logger.info(f'Epoch: {epoch}, Batch: {batch_idx}/{len(train_loader)} \tLoss: {loss.item():.6f}')
+        
+        logger.info(f"Epoch {epoch} finished.")
 
     logger.info("Training finished!")
-    # Save the final model (optional)
     if args.save_model:
         torch.save(model.state_dict(), f"{args.run_id}_final_model.pt")
         logger.info(f"Model saved to {args.run_id}_final_model.pt")
@@ -121,13 +113,13 @@ if __name__ == '__main__':
                         help='Comma-separated list of multiaddresses of initial DHT peers (e.g., "/ip4/X.X.X.X/tcp/Y/p2p/Qm...").')
     parser.add_argument('--dht_port', type=int, default=8080,
                         help='Port for the DHT to listen on (only relevant if initial_peers is not set)')
-    parser.add_argument('--public_ip', type=str, default=None, # <<< ADDED public_ip ARG
+    parser.add_argument('--public_ip', type=str, default=None,
                         help='Public IP address of this peer for advertising to others. REQUIRED for initial peer.')
     parser.add_argument('--save_model', action='store_true',
                         help='Save the final model state dict')
     parser.add_argument('--client_mode', action='store_true',
                         help='If true, this peer will only connect and not accept incoming connections. Useful if behind strict NAT without IPFS.')
-    parser.add_argument('--use_ipfs', action='store_true', # Keep for future reference if NAT is still an issue
+    parser.add_argument('--use_ipfs', action='store_true',
                         help='Use IPFS for NAT traversal (experimental)')
     
     args = parser.parse_args()
