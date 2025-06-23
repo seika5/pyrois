@@ -43,8 +43,9 @@ def train_model(args):
         dht = DHT(initial_peers=args.initial_peers.split(','), start=True)
     else:
         # For the first peer (remote machine), explicitly bind to 0.0.0.0 AND advertise public IP.
-        dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}"],
-                  announce_maddrs=[f"/ip4/{args.public_ip}/tcp/{args.dht_port}"])
+        # Use /ip6/ format for IPv6 addresses.
+        dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}", f"/ip6/::/tcp/{args.dht_port}"], # Listen on IPv4 and IPv6
+                  announce_maddrs=[f"/ip6/{args.public_ip}/tcp/{args.dht_port}"]) # <<< CRITICAL CHANGE HERE
     
     # Print the visible multiaddrs for other peers to connect
     print("DHT visible multiaddrs:")
@@ -71,7 +72,6 @@ def train_model(args):
 
     # Main training loop
     logger.info(f"Starting training for run_id: {args.run_id}")
-    # REMOVED: with opt.training():
     for epoch in range(args.num_epochs):
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
@@ -81,7 +81,7 @@ def train_model(args):
             loss = criterion(output, target)
             loss.backward()
             
-            opt.step() # This is now the primary driver of distributed updates
+            opt.step()
 
             if batch_idx % args.log_interval == 0:
                 logger.info(f'Epoch: {epoch}, Batch: {batch_idx}/{len(train_loader)} \tLoss: {loss.item():.6f}')
