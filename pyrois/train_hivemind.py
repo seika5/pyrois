@@ -3,9 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from hivemind import DHT, get_dht_time
-from hivemind.moe.optim import Collaboration # <<< Changed import path again!
-from hivemind.moe.server import DifferentiableExpert # <<< Changed import path again!
+from hivemind import DHT, Optimizer # <<< Key changes here!
 from hivemind.utils import get_logger
 import os
 import argparse
@@ -52,57 +50,51 @@ def train_model(args):
     for addr in dht.get_visible_maddrs():
         print(f"- {addr}")
 
-    # Initialize model
+    # Initialize model and optimizer
     model = SimpleMLP().to(device)
+    base_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
 
-    # --- HIVEFLEX (now Hivemind MoE) setup ---
-    # Define your local expert, which is your model
-    expert = DifferentiableExpert(
-        name=f"mnist_expert_{args.run_id}",
-        module=model,
-        optimizer=torch.optim.Adam(model.parameters(), lr=args.lr),
-        outputs_are_logits=True, # For CrossEntropyLoss
-        device=device
-    )
-
-    # Initialize Collaboration
-    collaboration = Collaboration(
+    # --- Hivemind Optimizer setup (updated as per latest docs) ---
+    # Hivemind.Optimizer directly wraps your PyTorch optimizer
+    opt = Optimizer(
         dht=dht,
-        expert=expert,
-        uid=args.run_id, # This UID links peers to the same training session
-        target_batch_size=args.target_batch_size,
-        num_batches_per_round=1, # One gradient accumulation step per round
-        optimizer_args={"lr": args.lr}, # Can pass optimizer args if using a default optimizer in Collaboration
+        optimizer=base_optimizer, # Wrap your standard PyTorch optimizer
+        run_id=args.run_id, # Unique identifier for this collaborative run
+        target_batch_size=args.target_batch_size, # Global batch size
+        batch_size_per_step=args.batch_size, # Local batch size contributed per step
         matchmaking_kwargs={'relay_ish': False if not args.use_ipfs else True}, # Use relay for NAT if IPFS is enabled
     )
 
+    # Optional: load state from peers if joining an existing run
+    # This ensures your model starts with the latest weights from the network
+    logger.info("Attempting to load state from peers...")
+    opt.load_state_from_peers()
+    logger.info("State loaded or initialized.")
+
+
     # Main training loop
     logger.info(f"Starting training for run_id: {args.run_id}")
-    with collaboration.training(): # Context manager for Hivemind training
+    with opt.training(): # Context manager for Hivemind training
         for epoch in range(args.num_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
                 data, target = data.to(device), target.to(device)
 
-                # Zero gradients for the local expert
-                expert.optimizer.zero_grad()
-                
-                # Forward pass
-                output = expert(data)
+                opt.zero_grad() # Calls zero_grad on the wrapped optimizer
+                output = model(data)
                 loss = criterion(output, target)
-                
-                # Backward pass
                 loss.backward()
                 
-                # Step the collaboration: this sends gradients and receives updated parameters
-                # The .step() method of the collaboration will internally call the expert's optimizer.step()
-                # after gradients are aggregated from all participants.
-                collaboration.step()
+                # Step the Hivemind optimizer: this handles gradient aggregation and parameter updates
+                opt.step()
 
                 if batch_idx % args.log_interval == 0:
                     logger.info(f'Epoch: {epoch}, Batch: {batch_idx}/{len(train_loader)} \tLoss: {loss.item():.6f}')
             
-            logger.info(f"Epoch {epoch} finished. Collaboration will handle synchronization.")
+            logger.info(f"Epoch {epoch} finished.")
+            # Hivemind.Optimizer implicitly synchronizes parameters via averaging in opt.step()
+            # If you want to explicitly pull latest parameters at epoch end:
+            # opt.load_state_from_peers()
 
     logger.info("Training finished!")
     # Save the final model (optional)
