@@ -19,7 +19,7 @@ model = nn.Sequential(nn.Conv2d(3, 16, (5, 5)), nn.MaxPool2d(2, 2), nn.ReLU(),
 opt = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Create DHT: a decentralized key-value storage shared between peers
-dht = hivemind.DHT(initial_peers=[COPY_FROM_OTHER_PEERS_OUTPUTS], start=True)
+dht = hivemind.DHT(initial_peers=['/ip4/127.0.0.1/tcp/46101/p2p/12D3KooW9xrzBqX2uothZeuXaqYDtGhziVRYuT8TyPpn7smna6sG'], start=True)
 print("To join the training, use initial_peers =", [str(addr) for addr in dht.get_visible_maddrs()])
 
 # Set up a decentralized optimizer that will average with peers in background
@@ -37,7 +37,11 @@ opt = hivemind.Optimizer(
 
 opt.load_state_from_peers()
 
-# Note: if you intend to use GPU, switch to it only after the optimizer is created
+# Define the maximum number of epochs
+MAX_EPOCHS = 100
+current_epoch = 0
+
+# Note: if you intend to use GPU, switch to it only after the decentralized optimizer is created
 with tqdm() as progressbar:
     while True:
         for x_batch, y_batch in torch.utils.data.DataLoader(trainset, shuffle=True, batch_size=32):
@@ -46,5 +50,13 @@ with tqdm() as progressbar:
             loss.backward()
             opt.step()
 
-            progressbar.desc = f"loss = {loss.item():.3f}"
+            progressbar.desc = f"Epoch {current_epoch + 1}/{MAX_EPOCHS}, Loss = {loss.item():.3f}"
             progressbar.update()
+
+        # Increment epoch counter after one full pass through the dataset
+        current_epoch += 1
+
+        # Check if the maximum number of epochs has been reached
+        if current_epoch >= MAX_EPOCHS:
+            print(f"Finished training after {MAX_EPOCHS} epochs.")
+            break # Exit the while True loop
