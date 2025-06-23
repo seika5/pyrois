@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from hivemind import DHT, get_dht_time, background_thread
+from hivemind import DHT, get_dht_time
 from hivemind.client.optim import Collaboration, DifferentiableExpert
 from hivemind.utils import get_logger
 import os
