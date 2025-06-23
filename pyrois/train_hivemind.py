@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from hivemind import DHT, Optimizer # <<< Key changes here!
+from hivemind import DHT, Optimizer # Corrected import
 from hivemind.utils import get_logger
 import os
 import argparse
@@ -39,11 +39,15 @@ def train_model(args):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
     # Initialize DHT
+    # Important: DHT needs to know its *publicly accessible* address.
+    # We will pass the public IP explicitly for the initial peer.
     if args.initial_peers:
         dht = DHT(initial_peers=args.initial_peers.split(','), start=True)
     else:
-        # This will be the first peer, it will print its address
-        dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}"]) # Listen on all interfaces
+        # For the first peer (remote machine), explicitly bind to 0.0.0.0 AND advertise public IP.
+        # This tells Hivemind to listen on all interfaces but tell others to connect via the public IP.
+        dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}"],
+                  announce_maddrs=[f"/ip4/{args.public_ip}/tcp/{args.dht_port}"]) # <<< ADDED announce_maddrs
     
     # Print the visible multiaddrs for other peers to connect
     print("DHT visible multiaddrs:")
@@ -55,19 +59,17 @@ def train_model(args):
     base_optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
 
-    # --- Hivemind Optimizer setup (updated as per latest docs) ---
-    # Hivemind.Optimizer directly wraps your PyTorch optimizer
+    # --- Hivemind Optimizer setup (updated for latest API) ---
     opt = Optimizer(
         dht=dht,
         optimizer=base_optimizer, # Wrap your standard PyTorch optimizer
         run_id=args.run_id, # Unique identifier for this collaborative run
         target_batch_size=args.target_batch_size, # Global batch size
         batch_size_per_step=args.batch_size, # Local batch size contributed per step
-        matchmaking_kwargs={'relay_ish': False if not args.use_ipfs else True}, # Use relay for NAT if IPFS is enabled
+        # matchmaking_kwargs removed as it's no longer a direct argument for Optimizer
     )
 
     # Optional: load state from peers if joining an existing run
-    # This ensures your model starts with the latest weights from the network
     logger.info("Attempting to load state from peers...")
     opt.load_state_from_peers()
     logger.info("State loaded or initialized.")
@@ -92,9 +94,6 @@ def train_model(args):
                     logger.info(f'Epoch: {epoch}, Batch: {batch_idx}/{len(train_loader)} \tLoss: {loss.item():.6f}')
             
             logger.info(f"Epoch {epoch} finished.")
-            # Hivemind.Optimizer implicitly synchronizes parameters via averaging in opt.step()
-            # If you want to explicitly pull latest parameters at epoch end:
-            # opt.load_state_from_peers()
 
     logger.info("Training finished!")
     # Save the final model (optional)
@@ -122,11 +121,13 @@ if __name__ == '__main__':
                         help='Comma-separated list of multiaddresses of initial DHT peers (e.g., "/ip4/X.X.X.X/tcp/Y/p2p/Qm...").')
     parser.add_argument('--dht_port', type=int, default=8080,
                         help='Port for the DHT to listen on (only relevant if initial_peers is not set)')
+    parser.add_argument('--public_ip', type=str, default=None, # <<< ADDED public_ip ARG
+                        help='Public IP address of this peer for advertising to others. REQUIRED for initial peer.')
     parser.add_argument('--save_model', action='store_true',
                         help='Save the final model state dict')
     parser.add_argument('--client_mode', action='store_true',
                         help='If true, this peer will only connect and not accept incoming connections. Useful if behind strict NAT without IPFS.')
-    parser.add_argument('--use_ipfs', action='store_true',
+    parser.add_argument('--use_ipfs', action='store_true', # Keep for future reference if NAT is still an issue
                         help='Use IPFS for NAT traversal (experimental)')
     
     args = parser.parse_args()
