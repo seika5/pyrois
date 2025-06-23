@@ -19,7 +19,7 @@ model = nn.Sequential(nn.Conv2d(3, 16, (5, 5)), nn.MaxPool2d(2, 2), nn.ReLU(),
 opt = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Create DHT: a decentralized key-value storage shared between peers
-dht = hivemind.DHT(initial_peers=['/ip4/127.0.0.1/tcp/46101/p2p/12D3KooW9xrzBqX2uothZeuXaqYDtGhziVRYuT8TyPpn7smna6sG'], start=True)
+dht = hivemind.DHT(initial_peers=['/ip4/23.93.190.36/tcp/2222/p2p/12D3KooWEZrwSsbRdM6x48UDnrD24RqYpUymwYofKwBevJRaDwJy'], start=True)
 print("To join the training, use initial_peers =", [str(addr) for addr in dht.get_visible_maddrs()])
 
 # Set up a decentralized optimizer that will average with peers in background
@@ -37,9 +37,8 @@ opt = hivemind.Optimizer(
 
 opt.load_state_from_peers()
 
-# Define the maximum number of epochs
-MAX_EPOCHS = 100
-current_epoch = 0
+# Define the maximum number of HIVEMIND epochs
+MAX_HIVEMIND_EPOCHS = 25
 
 # Note: if you intend to use GPU, switch to it only after the decentralized optimizer is created
 with tqdm() as progressbar:
@@ -50,13 +49,20 @@ with tqdm() as progressbar:
             loss.backward()
             opt.step()
 
-            progressbar.desc = f"Epoch {current_epoch + 1}/{MAX_EPOCHS}, Loss = {loss.item():.3f}"
+            # Get current Hivemind global epoch
+            # opt.info.get('samples_processed', 0) gives total samples seen by the collective
+            # opt.target_batch_size is the number of samples for one Hivemind epoch
+            current_hivemind_epoch = opt.info.get("samples_processed", 0) // opt.target_batch_size
+
+            progressbar.desc = (
+                f"Hivemind Epoch {current_hivemind_epoch}/{MAX_HIVEMIND_EPOCHS}, "
+                f"Loss = {loss.item():.3f}"
+            )
             progressbar.update()
 
-        # Increment epoch counter after one full pass through the dataset
-        current_epoch += 1
-
-        # Check if the maximum number of epochs has been reached
-        if current_epoch >= MAX_EPOCHS:
-            print(f"Finished training after {MAX_EPOCHS} epochs.")
+        # Check if the maximum number of Hivemind epochs has been reached
+        if current_hivemind_epoch >= MAX_HIVEMIND_EPOCHS:
+            print(f"Finished training after {MAX_HIVEMIND_EPOCHS} Hivemind epochs.")
             break # Exit the while True loop
+
+print("Script finished.")
