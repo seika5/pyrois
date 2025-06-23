@@ -4,7 +4,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from hivemind import DHT, get_dht_time
-from hivemind.client.optim import Collaboration, DifferentiableExpert
+from hivemind.optim import Collaboration # Changed import path
+from hivemind.server.expert import DifferentiableExpert # Changed import path
 from hivemind.utils import get_logger
 import os
 import argparse
@@ -46,7 +47,7 @@ def train_model(args):
         # This will be the first peer, it will print its address
         dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}"]) # Listen on all interfaces
     
-    # Print the visible addresses for other peers to connect
+    # Print the visible multiaddrs for other peers to connect
     print("DHT visible multiaddrs:")
     for addr in dht.get_visible_maddrs():
         print(f"- {addr}")
@@ -66,8 +67,6 @@ def train_model(args):
     )
 
     # Initialize Collaboration
-    # Note: Hivemind's client.optim.Collaboration is the modern way to manage distributed training.
-    # It acts as a wrapper around your local expert and connects it to the DHT for collaborative learning.
     collaboration = Collaboration(
         dht=dht,
         expert=expert,
@@ -76,11 +75,7 @@ def train_model(args):
         num_batches_per_round=1, # One gradient accumulation step per round
         optimizer_args={"lr": args.lr}, # Can pass optimizer args if using a default optimizer in Collaboration
         matchmaking_kwargs={'relay_ish': False if not args.use_ipfs else True}, # Use relay for NAT if IPFS is enabled
-        # The next two parameters control how the optimizer behaves (e.g. weight decay, momentum)
-        # and how the gradients are aggregated (e.g. no clipping)
-        # Check hivemind.client.optim.Collaboration documentation for more options
     )
-
 
     # Main training loop
     logger.info(f"Starting training for run_id: {args.run_id}")
