@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
-from hivemind import DHT, OptimizedDistributedOptimizer, get_dht_time, background_thread
+from hivemind import DHT, get_dht_time, background_thread
+from hivemind.client.optim import Collaboration, DifferentiableExpert
 from hivemind.utils import get_logger
 import os
 import argparse
@@ -54,40 +55,59 @@ def train_model(args):
     model = SimpleMLP().to(device)
     criterion = nn.CrossEntropyLoss()
 
-    # Create Hivemind optimizer
-    opt = OptimizedDistributedOptimizer(
-        opt=torch.optim.Adam(model.parameters(), lr=args.lr),
-        dht=dht,
-        run_id=args.run_id,
-        target_batch_size=args.target_batch_size,
-        local_batch_size=args.batch_size,
-        scheduler_args={'expiration': get_dht_time() + 60}, # Keep task active for 60 seconds
-        matchmaking_kwargs={'relay_ish': False if not args.use_ipfs else True}, # Use relay for NAT if IPFS is enabled
-        **({'client_mode': True} if args.client_mode else {}) # If behind strict NAT, only connect, don't serve
+    # --- HIVEFLEX (formerly OptimizedDistributedOptimizer) setup ---
+    # Define your local expert, which is your model
+    expert = DifferentiableExpert(
+        name=f"mnist_expert_{args.run_id}",
+        module=model,
+        optimizer=torch.optim.Adam(model.parameters(), lr=args.lr),
+        outputs_are_logits=True, # For CrossEntropyLoss
+        device=device
     )
+
+    # Initialize Collaboration
+    # Note: Hivemind's client.optim.Collaboration is the modern way to manage distributed training.
+    # It acts as a wrapper around your local expert and connects it to the DHT for collaborative learning.
+    collaboration = Collaboration(
+        dht=dht,
+        expert=expert,
+        uid=args.run_id, # This UID links peers to the same training session
+        target_batch_size=args.target_batch_size,
+        num_batches_per_round=1, # One gradient accumulation step per round
+        optimizer_args={"lr": args.lr}, # Can pass optimizer args if using a default optimizer in Collaboration
+        matchmaking_kwargs={'relay_ish': False if not args.use_ipfs else True}, # Use relay for NAT if IPFS is enabled
+        # The next two parameters control how the optimizer behaves (e.g. weight decay, momentum)
+        # and how the gradients are aggregated (e.g. no clipping)
+        # Check hivemind.client.optim.Collaboration documentation for more options
+    )
+
 
     # Main training loop
     logger.info(f"Starting training for run_id: {args.run_id}")
-    with opt.training(): # Context manager for Hivemind training
+    with collaboration.training(): # Context manager for Hivemind training
         for epoch in range(args.num_epochs):
             for batch_idx, (data, target) in enumerate(train_loader):
                 data, target = data.to(device), target.to(device)
 
-                opt.zero_grad()
-                output = model(data)
+                # Zero gradients for the local expert
+                expert.optimizer.zero_grad()
+                
+                # Forward pass
+                output = expert(data)
                 loss = criterion(output, target)
+                
+                # Backward pass
                 loss.backward()
                 
-                # Step the Hivemind optimizer
-                opt.step()
+                # Step the collaboration: this sends gradients and receives updated parameters
+                # The .step() method of the collaboration will internally call the expert's optimizer.step()
+                # after gradients are aggregated from all participants.
+                collaboration.step()
 
                 if batch_idx % args.log_interval == 0:
                     logger.info(f'Epoch: {epoch}, Batch: {batch_idx}/{len(train_loader)} \tLoss: {loss.item():.6f}')
             
-            logger.info(f"Epoch {epoch} finished. Synchronizing model parameters...")
-            # Optional: Manually synchronize parameters at epoch end if needed,
-            # though OptimizedDistributedOptimizer handles this implicitly.
-            # opt.load_state_from_peers() 
+            logger.info(f"Epoch {epoch} finished. Collaboration will handle synchronization.")
 
     logger.info("Training finished!")
     # Save the final model (optional)
