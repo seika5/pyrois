@@ -42,10 +42,10 @@ def train_model(args):
     if args.initial_peers:
         dht = DHT(initial_peers=args.initial_peers.split(','), start=True)
     else:
-        # For the first peer (remote machine), explicitly bind to 0.0.0.0 AND advertise public IP.
-        # Use /ip6/ format for IPv6 addresses.
-        dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}", f"/ip6/::/tcp/{args.dht_port}"], # Listen on IPv4 and IPv6
-                  announce_maddrs=[f"/ip6/{args.public_ip}/tcp/{args.dht_port}"]) # <<< CRITICAL CHANGE HERE
+        # For the first peer (remote machine), explicitly bind to 0.0.0.0 for IPv4
+        # and advertise the specific public IPv4 address.
+        dht = DHT(start=True, host_maddrs=[f"/ip4/0.0.0.0/tcp/{args.dht_port}"], # <<< IPv4 ONLY for listening
+                  announce_maddrs=[f"/ip4/{args.public_ip}/tcp/{args.dht_port}"]) # <<< IPv4 ONLY for announcing
     
     # Print the visible multiaddrs for other peers to connect
     print("DHT visible multiaddrs:")
