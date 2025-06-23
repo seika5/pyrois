@@ -4,8 +4,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 from hivemind import DHT, get_dht_time
-from hivemind.optim import Collaboration # Changed import path
-from hivemind.server.expert import DifferentiableExpert # Changed import path
+from hivemind.moe.optim import Collaboration # <<< Changed import path again!
+from hivemind.moe.server import DifferentiableExpert # <<< Changed import path again!
 from hivemind.utils import get_logger
 import os
 import argparse
@@ -56,7 +56,7 @@ def train_model(args):
     model = SimpleMLP().to(device)
     criterion = nn.CrossEntropyLoss()
 
-    # --- HIVEFLEX (formerly OptimizedDistributedOptimizer) setup ---
+    # --- HIVEFLEX (now Hivemind MoE) setup ---
     # Define your local expert, which is your model
     expert = DifferentiableExpert(
         name=f"mnist_expert_{args.run_id}",
