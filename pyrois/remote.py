@@ -20,8 +20,8 @@ opt = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Create DHT: a decentralized key-value storage shared between peers
 dht = hivemind.DHT(
-    host_maddrs=['/ip4/0.0.0.0/tcp/2222'],  # Listen on all interfaces on port 2222
-    announce_maddrs=['/ip4/23.93.190.36/tcp/2222'], # Announce your public IP and port
+    host_maddrs=['/ip4/0.0.0.0/tcp/8888'],  # Listen on all interfaces on port 8888
+    announce_maddrs=['/ip4/23.93.190.36/tcp/8888'], # Announce your public IP and port
     start=True
 )
 print("To join the training, use initial_peers =", [str(addr) for addr in dht.get_visible_maddrs()])
