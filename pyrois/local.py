@@ -49,10 +49,7 @@ with tqdm() as progressbar:
             loss.backward()
             opt.step()
 
-            # Get current Hivemind global epoch
-            # opt.info.get('samples_processed', 0) gives total samples seen by the collective
-            # opt.target_batch_size is the number of samples for one Hivemind epoch
-            current_hivemind_epoch = opt.info.get("samples_processed", 0) // opt.target_batch_size
+            current_hivemind_epoch = opt.state.get("samples_processed", 0) // opt.target_batch_size
 
             progressbar.desc = (
                 f"Hivemind Epoch {current_hivemind_epoch}/{MAX_HIVEMIND_EPOCHS}, "
