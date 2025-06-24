@@ -19,7 +19,7 @@ model = nn.Sequential(nn.Conv2d(3, 16, (5, 5)), nn.MaxPool2d(2, 2), nn.ReLU(),
 opt = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Create DHT: a decentralized key-value storage shared between peers
-dht = hivemind.DHT(initial_peers=['/ip4/23.93.190.36/tcp/8888/p2p/12D3KooWArwpgyLxDjPYgKkCM7kfKtmSEsfYwF1bQ9iFZ4GFL7k7'], start=True)
+dht = hivemind.DHT(initial_peers=['/ip4/23.93.190.36/tcp/8888/p2p/12D3KooWHtSCCDkMe9PV3tYQQoJ3h2NKGfrEkojHgno3k9Nr3TNP'], start=True)
 print("To join the training, use initial_peers =", [str(addr) for addr in dht.get_visible_maddrs()])
 
 # Set up a decentralized optimizer that will average with peers in background
