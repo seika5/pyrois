@@ -6,6 +6,9 @@ from tqdm.auto import tqdm
 
 import hivemind
 
+import requests
+public_ip = requests.get('https://api.ipify.org').text
+
 # Create dataset and model, same as in the basic tutorial
 # For this basic tutorial, we download only the training set
 transform = transforms.Compose(
@@ -20,8 +23,8 @@ opt = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Create DHT: a decentralized key-value storage shared between peers
 dht = hivemind.DHT(
-    host_maddrs=['/ip4/0.0.0.0/tcp/8888'],  # Listen on all interfaces on port 8888
-    announce_maddrs=dht.get_visible_maddrs(),
+    host_maddrs=['/ip4/0.0.0.0/tcp/8888'],
+    announce_maddrs=[f'/ip4/{public_ip}/tcp/8888'],
     start=True
 )
 print("To join the training, use initial_peers =", [str(addr) for addr in dht.get_visible_maddrs()])
