@@ -39,8 +39,8 @@ opt = hivemind.Optimizer(
     verbose=True              # print logs incessently
 )
 
-# Define the maximum number of HIVEMIND epochs
-MAX_HIVEMIND_EPOCHS = 25
+MAX_STEPS = 25
+current_step = 0
 
 # Note: if you intend to use GPU, switch to it only after the decentralized optimizer is created
 with tqdm() as progressbar:
@@ -51,17 +51,13 @@ with tqdm() as progressbar:
             loss.backward()
             opt.step()
 
-            current_hivemind_epoch = opt.state.get("samples_processed", 0) // opt.target_batch_size
-
-            progressbar.desc = (
-                f"Hivemind Epoch {current_hivemind_epoch}/{MAX_HIVEMIND_EPOCHS}, "
-                f"Loss = {loss.item():.3f}"
-            )
+            progressbar.desc = f"Step {current_step + 1}/{MAX_STEPS}, Loss = {loss.item():.3f}"
             progressbar.update()
 
-        # Check if the maximum number of Hivemind epochs has been reached
-        if current_hivemind_epoch >= MAX_HIVEMIND_EPOCHS:
-            print(f"Finished training after {MAX_HIVEMIND_EPOCHS} Hivemind epochs.")
-            break # Exit the while True loop
+        # Increment epoch counter after one full pass through the dataset
+        current_step += 1
 
-print("Script finished.")
+        # Check if the maximum number of steps has been reached
+        if current_step >= MAX_STEPS:
+            print(f"Finished training after {MAX_STEPS} steps.")
+            break # Exit the while True loop

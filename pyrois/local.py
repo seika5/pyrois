@@ -19,7 +19,7 @@ model = nn.Sequential(nn.Conv2d(3, 16, (5, 5)), nn.MaxPool2d(2, 2), nn.ReLU(),
 opt = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
 # Create DHT: a decentralized key-value storage shared between peers
-dht = hivemind.DHT(initial_peers=['/ip4/23.93.190.36/tcp/2222/p2p/12D3KooWEZrwSsbRdM6x48UDnrD24RqYpUymwYofKwBevJRaDwJy'], start=True)
+dht = hivemind.DHT(initial_peers=['/ip4/23.93.190.36/tcp/2222/p2p/12D3KooWSaKmjebmhK1e4K6H2vSrQzcbxTSCUZrSrpt3ZMaT2Mcb'], start=True)
 print("To join the training, use initial_peers =", [str(addr) for addr in dht.get_visible_maddrs()])
 
 # Set up a decentralized optimizer that will average with peers in background
@@ -37,8 +37,8 @@ opt = hivemind.Optimizer(
 
 opt.load_state_from_peers()
 
-# Define the maximum number of HIVEMIND epochs
-MAX_HIVEMIND_EPOCHS = 25
+MAX_STEPS = 25
+current_step = 0
 
 # Note: if you intend to use GPU, switch to it only after the decentralized optimizer is created
 with tqdm() as progressbar:
@@ -49,17 +49,13 @@ with tqdm() as progressbar:
             loss.backward()
             opt.step()
 
-            current_hivemind_epoch = opt.state.get("samples_processed", 0) // opt.target_batch_size
-
-            progressbar.desc = (
-                f"Hivemind Epoch {current_hivemind_epoch}/{MAX_HIVEMIND_EPOCHS}, "
-                f"Loss = {loss.item():.3f}"
-            )
+            progressbar.desc = f"Step {current_step + 1}/{MAX_STEPS}, Loss = {loss.item():.3f}"
             progressbar.update()
 
-        # Check if the maximum number of Hivemind epochs has been reached
-        if current_hivemind_epoch >= MAX_HIVEMIND_EPOCHS:
-            print(f"Finished training after {MAX_HIVEMIND_EPOCHS} Hivemind epochs.")
-            break # Exit the while True loop
+        # Increment epoch counter after one full pass through the dataset
+        current_step += 1
 
-print("Script finished.")
+        # Check if the maximum number of steps has been reached
+        if current_step >= MAX_STEPS:
+            print(f"Finished training after {MAX_STEPS} steps.")
+            break # Exit the while True loop
