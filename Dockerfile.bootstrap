@@ -1,0 +1,54 @@
+FROM python:3.9-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install Python dependencies
+COPY hivemind/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install additional dependencies needed for the scripts
+RUN pip install --no-cache-dir torchvision tqdm
+
+# Install grpcio-tools for protobuf compilation
+RUN pip install --no-cache-dir grpcio-tools
+
+# Copy hivemind source
+COPY hivemind/ .
+
+# Ensure __init__.py exists in proto dir
+RUN touch hivemind/proto/__init__.py
+
+# Debug: show what we have
+RUN echo "Current directory:" && pwd && echo "Contents of hivemind:" && ls -la hivemind/ && echo "Contents of hivemind/proto:" && ls -la hivemind/proto/
+
+# Try a simpler protoc approach - compile each file individually
+RUN cd hivemind && python -m grpc_tools.protoc --proto_path=proto --python_out=proto proto/*.proto
+
+# Debug: list contents of proto dir after compilation
+RUN echo "After protoc - Contents of hivemind/proto:" && ls -la hivemind/proto/
+
+# Patch generated files to use relative imports (ignore error if no files)
+RUN for f in hivemind/proto/*_pb2.py; do [ -e "$f" ] && sed -i 's/^import \(.*_pb2\)/from . import \1/' "$f" || true; done
+
+# Install hivemind in development mode
+WORKDIR /app
+RUN pip install -e .
+
+# Copy the bootstrap script
+COPY bootstrap.py .
+
+# Create data directory for CIFAR10
+RUN mkdir -p /app/data
+
+# Expose the default DHT port
+EXPOSE 1337
+
+# Run bootstrap
+CMD ["python", "bootstrap.py"] 

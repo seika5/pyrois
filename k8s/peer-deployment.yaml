@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-config
+  namespace: hivemind
+data:
+  bootstrap_address: "'/ip4/10.1.0.181/tcp/35225/p2p/12D3KooWHQ8uqdtPcUmDdo8e5vNm6ohNGcbfVGLdcFoKtaRuHD9Y'"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: peer-deployment
+  namespace: hivemind
+  labels:
+    app: peer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: peer
+  template:
+    metadata:
+      labels:
+        app: peer
+    spec:
+      containers:
+      - name: peer
+        image: hivemind-peer:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 1337
+        env:
+        - name: BOOTSTRAP_ADDRESS
+          valueFrom:
+            configMapKeyRef:
+              name: peer-config
+              key: bootstrap_address
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: hivemind-data-pvc 

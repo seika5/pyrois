@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hivemind-data-pvc
+  namespace: hivemind
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bootstrap-service
+  namespace: hivemind
+  labels:
+    app: bootstrap
+spec:
+  selector:
+    app: bootstrap
+  ports:
+    - protocol: TCP
+      port: 1337
+      targetPort: 1337
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bootstrap-deployment
+  namespace: hivemind
+  labels:
+    app: bootstrap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bootstrap
+  template:
+    metadata:
+      labels:
+        app: bootstrap
+    spec:
+      containers:
+      - name: bootstrap
+        image: hivemind-bootstrap:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 1337
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: hivemind-data-pvc 
